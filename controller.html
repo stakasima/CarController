@@ -1,0 +1,453 @@
+<!DOCTYPE HTML>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Web Bluetoothを用いたカー・コントローラのサンプル</title>
+<!--
+<link rel="stylesheet" href="style.css">
+-->
+</head>
+<body>
+    <img src="http://192.168.11.5:81/stream" width=780>
+<div class="spf-controller">
+    <button class="btn ear ear-left" id="ear-left"></button>
+    <button class="btn ear ear-right" id="ear-right"></button>
+    <div class="controller-left">
+        <div class="cross-layout">
+            <button class="position-top btn cross-key-btn"><span class="top-mark" id="top">▲</span></button>
+            <button class="position-left btn cross-key-btn"><span class="left-mark" id="left">▲</span></button>
+            <button class="position-center btn cross-key-btn"><span class="center-mark" id="center">●</span></button>
+            <button class="position-right btn cross-key-btn"><span class="right-mark" id="right">▲</span></button>
+            <button class="position-bottom btn cross-key-btn"><span class="bottom-mark" id="bottom">▲</span></button>
+        </div>
+    </div>
+    <div class="controller-center">
+        <span class="logo-msg">Car Controller</span>
+        <div class="selectstart-btn-set">
+            <button class="btn connect-btn" id="connect">接続</button>
+        </div>
+    </div>
+    <div class="controller-right">
+        <div class="abxy-btn-set">
+            <div class="cross-layout">
+                <button class="btn abxy-btn position-top btn-x">X</button>
+                <button class="btn abxy-btn position-left btn-y">Y</button>
+                <button class="btn abxy-btn position-right btn-a">A</button>
+                <button class="btn abxy-btn position-bottom btn-b">B</button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script>
+    const UUID_UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+    const UUID_TX_CHAR_CHARACTERISTIC = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
+    const UUID_RX_CHAR_CHARACTERISTIC = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'
+    
+    let gatt = null
+    let tx = null
+    let rx = null
+
+    connect.style.backgroundColor = "white"
+    
+    const update = connected => {
+        document.getElementById('connect').textContent = connected ? '切断' : '接続'
+        if (update) connect.style.backgroundColor = "orange"
+        //document.getElementById('send').disabled = !connected
+    }
+    const send = text => rx.writeValue(new TextEncoder().encode(text + '\n'))
+    
+    document.getElementById('connect').addEventListener('click', e => {
+        if(!(navigator.bluetooth && navigator.bluetooth.requestDevice)) {
+            alert('WebBluetooth に未対応のブラウザです。')
+            return
+        }
+        if (document.getElementById('connect').textContent == '接続') {
+            navigator.bluetooth.requestDevice({
+                filters: [
+                    { services: [UUID_UART_SERVICE] },
+                    { namePrefix: 'BBC micro:bit' }
+                ]
+            }).then(device => {
+                gatt = device.gatt
+                return gatt.connect()
+            }).then(server =>
+                server.getPrimaryService(UUID_UART_SERVICE)
+            ).then(service =>
+                Promise.all([
+                service.getCharacteristic(UUID_TX_CHAR_CHARACTERISTIC),
+                service.getCharacteristic(UUID_RX_CHAR_CHARACTERISTIC)])
+            ).then(characteristics => {
+                tx = characteristics[0]
+                tx.startNotifications()
+                tx.addEventListener('characteristicvaluechanged', e => {
+                    const text = new TextDecoder().decode(e.target.value)
+                    document.getElementById('recieve_text').value = text + document.getElementById('recieve_text').value
+                })
+                rx = characteristics[1]
+                update(true)
+            }).catch(function(err) {
+                alert(err)
+            })
+        } else {
+            gatt.disconnect()
+            update(false)
+            connect.style.backgroundColor = "white"
+        }
+    })
+
+    document.getElementById('top').addEventListener('click', e => {
+        send('A#')
+    })
+    document.getElementById('bottom').addEventListener('click', e => {
+        send('B#')
+    })
+    document.getElementById('left').addEventListener('click', e => {
+        send('C#')
+    })
+    document.getElementById('right').addEventListener('click', e => {
+        send('D#')
+    })
+    document.getElementById('ear-left').addEventListener('click', e => {
+        send('E#')
+    })
+    document.getElementById('ear-right').addEventListener('click', e => {
+        send('F#')
+    })
+    document.getElementById('center').addEventListener('click', e => {
+        send('0#')
+    })
+    </script>
+
+    <style>
+    /** 下準備_ボタン **/
+
+    .btn {
+        border-style: none;
+        cursor: pointer;
+    }
+
+    /** 下準備_十字配置部品 **/
+
+    .cross-layout {
+        display: grid;
+        grid-template-columns: 60px 60px 60px;
+        grid-template-rows: 60px 60px 60px;
+        /*
+        grid-template-columns: 30px 30px 30px;
+        grid-template-rows: 30px 30px 30px;
+        */
+    }
+
+    .cross-layout .position-top {
+        grid-row: 1 / 2;
+        grid-column: 2 / 3;
+    }
+
+    .cross-layout .position-left {
+        grid-row: 2 / 3;
+        grid-column: 1 / 2;
+    }
+
+    .cross-layout .position-center {
+        grid-row: 2 / 3;
+        grid-column: 2 / 3;
+    }
+
+    .cross-layout .position-right {
+        grid-row: 2 / 3;
+        grid-column: 3/4;
+    }
+
+    .cross-layout .position-bottom {
+        grid-row: 3 / 4;
+        grid-column: 2/3;
+    }
+
+
+    /**　コントローラーの右側_ABXYボタン**/
+
+    .abxy-btn {
+        width: 60px;
+        height: 60px;
+        /*
+        width: 30px;
+        height: 30px;
+        */
+        font-size: x-large;
+        border-radius: 50%;
+
+        color: white;
+    }
+
+    .btn-x {
+        background-color: blue;
+    }
+    .btn-x:active {
+        background-color: rgb(0, 0, 0);
+    }
+
+    .btn-y {
+        background-color: green;
+    }
+    .btn-y:active {
+        background-color: rgb(0, 0, 0);
+    }
+
+    .btn-a {
+        background-color: red;
+    }
+    .btn-a:active {
+        background-color: rgb(0, 0, 0);
+    }
+
+    .btn-b {
+        background-color: rgb(83, 83, 5);
+    }
+    .btn-b:active {
+        background-color: rgb(0, 0, 0);
+    }
+
+    /**　コントローラーの右側_ABXYボタンを灰色の円形で囲む**/
+
+    .abxy-btn-set {
+        display: inline-block;
+        padding: 20px;
+        /*
+        padding: 10px;
+        */
+        background-color: rgba(66, 86, 123, 0.5);
+        border-radius: 50%;
+    }
+
+    /**　コントローラーの右側_ABXYボタンを灰色の円形で囲んだものをさらに灰色の円形で囲む**/
+
+    .controller-right {
+        display: inline-block;
+        background-color: rgb(229, 227, 250);
+        padding: 40px;
+        /*
+        padding: 20px;
+        */
+        border-radius: 50%;
+    }
+
+
+    /**　コントローラーの左側_十字キー**/
+
+    .cross-key-btn {
+        width: 60px;
+        height: 60px;
+        font-size: xx-large;
+        /*
+        width: 30px;
+        height: 30px;
+        */
+        background-color: rgba(66, 86, 123, 0.5);
+    }
+    .cross-key-btn:active {
+        width: 60px;
+        height: 60px;
+        /*
+        width: 30px;
+        height: 30px;
+        */
+        background-color: rgba(33, 103, 233, 0.5);
+    }
+
+    .top-mark {
+        display: block;
+        transform: rotate(0deg);
+    }
+    .top-mark:active {
+        display: block;
+        transform: rotate(0deg);
+        background-color: rgba(33, 103, 233, 0.5);
+    }
+
+    .left-mark {
+        display: block;
+        transform: rotate(-90deg);
+    }
+    .left-mark:active {
+        display: block;
+        transform: rotate(-90deg);
+        background-color: rgba(33, 103, 233, 0.5);
+    }
+
+    .right-mark {
+        display: block;
+        transform: rotate(90deg);
+    }
+    .right-mark:active {
+        display: block;
+        transform: rotate(90deg);
+        background-color: rgba(33, 103, 233, 0.5);
+    }
+
+    .bottom-mark {
+        display: block;
+        transform: rotate(180deg);
+    }
+    .bottom-mark:active {
+        display: block;
+        transform: rotate(180deg);
+        background-color: rgba(33, 103, 233, 0.5);
+    }
+
+    /**　コントローラーの左側_十字キーを灰色の円形で囲む**/
+
+    .controller-left {
+        display: inline-block;
+        background-color: rgb(229, 227, 250);
+        padding: 60px;
+        /*
+        padding: 30px;
+        */
+        border-radius: 50%;
+    }
+
+    /**　コントローラーの真ん中_BLE接続・切断ボタン**/
+
+    .connect-btn {
+        width: 90px;
+        height: 50px;
+        /*
+        width: 45px;
+        height: 25px;
+        */
+        font-size: x-large;
+        background-color: rgba(252, 179, 84, 0.5);
+        user-select: none;
+    }
+    .connect-btn:active {
+            background-color: rgba(4, 11, 24, 0.5);
+    }
+
+    /**　コントローラーの真ん中_Logoを書く領域を定義**/
+
+    .logo-msg {
+        font-family: 'Mina', sans-serif;
+    }
+
+    /**　コントローラーの真ん中_スタートボタン・セレクトボタンとLogoを書く領域を一つにまとめる**/
+
+    .controller-center {
+        width: 440px;
+        height: 260px;
+        /*
+        width: 220px;
+        height: 130px;
+        */
+        background-color: rgb(229, 227, 250);
+    }
+
+    .controller-center .logo-msg {
+        display: block;
+        width: 280px;
+        margin: auto;
+        padding-top: 40px;
+        text-align: center;
+
+        font-size: 1.6em;
+        color: gray;
+        /*
+        display: block;
+        width: 140px;
+        margin: auto;
+        padding-top: 20px;
+        text-align: center;
+
+        font-size: 0.8em;
+        color: gray;
+        */
+    }
+
+    .controller-center .selectstart-btn-set {
+        display: block;
+        width: 280px;
+        text-align: center;
+        margin: auto;
+        margin-top: 80px;
+        /*
+        display: block;
+        width: 140px;
+        text-align: center;
+        margin: auto;
+        margin-top: 40px;
+        */
+    }
+
+    /**　コントローラーの左側と真ん中と右側をくっつける**/
+
+    .spf-controller {
+        display: flex;
+    }
+
+    .spf-controller .controller-center {
+        margin-left: -160px;
+        margin-right: -160px;
+        /*
+        margin-left: -80px;
+        margin-right: -80px;
+        */
+    }
+
+    .spf-controller .controller-center {
+        z-index: 1;
+    }
+
+    .spf-controller .controller-left {
+        z-index: 2;
+    }
+
+    .spf-controller .controller-right {
+        z-index: 2;
+    }
+
+    /** 追記_RボタンLボタン **/
+    .ear {
+        position: absolute;
+
+        width: 160px;
+        height: 80px;
+        /*
+        width: 80px;
+        height: 40px;
+        */
+
+        background-color: rgba(66, 86, 123, 0.5);
+
+        border-top-right-radius: 30%;
+        border-top-left-radius: 30%;
+    }
+
+    .ear-left {
+        transform: rotate(-30deg);
+        top: 0px;
+        left: 0px;
+    }
+    .ear-left:active {
+        background-color: rgba(4, 11, 24, 0.5);
+    }
+
+    .ear-right {
+        transform: rotate(30deg);
+        top: 0px;
+        right: 0px;
+    }
+    .ear-right:active {
+        background-color: rgba(4, 11, 24, 0.5);
+    }
+
+    .spf-controller {
+        position: relative;
+        width:720px;
+        /*
+        width:360px;
+        */
+        margin:30px 30px;
+    }
+
+    </style>
+</html>
